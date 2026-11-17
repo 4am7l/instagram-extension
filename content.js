@@ -6,14 +6,16 @@
         starting: "جاري البدء…",
         started: "بدأ التحميل",
         recording: "جاري حفظ الفيديو. خلّيه يشتغل للآخر.",
-        failed: "تعذّر حفظ الفيديو"
+        failed: "تعذّر حفظ الفيديو",
+        copy: "نسخ الوصف", copied: "تم نسخ الوصف", noCaption: "ما لقيت وصف لهذا المنشور"
       }
     : {
         download: "Download video",
         starting: "Starting…",
         started: "Download started",
         recording: "Saving video. Let it play to the end.",
-        failed: "Could not save this video"
+        failed: "Could not save this video",
+        copy: "Copy caption", copied: "Caption copied", noCaption: "No caption found"
       };
 
   const host = document.createElement("div");
@@ -27,6 +29,7 @@
     "  padding: 0; border: 1px solid #ffffff66; border-radius: 50%;",
     "  background: #171717; color: #fff; cursor: pointer; }",
     "button svg { width: 16px; height: 16px; }",
+    ".actions { display: flex; flex-direction: column; gap: 5px; }",
     "button:hover { background: #333; }",
     "button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }",
     "button:disabled { cursor: wait; }",
@@ -59,7 +62,16 @@
   const status = document.createElement("span");
   status.setAttribute("role", "status");
   status.dir = rtl ? "rtl" : "ltr";
-  shadow.append(button, status);
+  const copyButton = document.createElement("button");
+  copyButton.type = "button";
+  copyButton.title = labels.copy;
+  copyButton.setAttribute("aria-label", labels.copy);
+  copyButton.textContent = "⧉";
+  copyButton.style.font = "bold 19px system-ui";
+  const actions = document.createElement("div");
+  actions.className = "actions";
+  actions.append(button, copyButton);
+  shadow.append(actions, status);
   document.body.append(host);
 
   let activeVideo = null;
@@ -111,6 +123,48 @@
     }
     return best;
   }
+
+  function captionFor(video) {
+    const container = video.closest("article") ||
+      video.closest('[role="dialog"]') ||
+      document.querySelector("main article") ||
+      document.querySelector("main");
+    if (!container) return "";
+
+    // Instagram renders captions in multiple layouts. Restrict the search to
+    // caption containers rather than taking the first span (often a username).
+    const candidates = [
+      ...container.querySelectorAll('h1'),
+      ...container.querySelectorAll('ul li'),
+      ...container.querySelectorAll('[data-testid="post-comment-root"]')
+    ];
+    for (const node of candidates) {
+      if (node.closest("header, nav, button")) continue;
+      const clone = node.cloneNode(true);
+      clone.querySelectorAll('button, time, svg, a, [role="button"], ul, [aria-hidden="true"]').forEach(n => n.remove());
+      const text = (clone.innerText || clone.textContent || "").trim();
+      const lines = text.split("\\n").map(x => x.trim()).filter(Boolean);
+      const author = container.querySelector("header a")?.textContent?.trim();
+      const clean = lines.filter(x => x !== author && !/^(follow|following|متابعة|عرض الترجمة|see translation|more|المزيد|reply|رد)$/i.test(x)).join("\\n");
+      if (clean.length > 1 && clean.length < 10000) return clean;
+    }
+    return "";
+  }
+
+  copyButton.addEventListener("click", async event => {
+    event.stopPropagation();
+    if (!event.isTrusted) return;
+    const video = activeVideo;
+    if (!video) return;
+    const caption = captionFor(video);
+    if (!caption) return showFeedback(labels.noCaption);
+    try {
+      await navigator.clipboard.writeText(caption);
+      showFeedback(labels.copied);
+    } catch {
+      showFeedback(labels.failed);
+    }
+  });
 
   function clearFeedback() {
     clearTimeout(feedbackTimer);
