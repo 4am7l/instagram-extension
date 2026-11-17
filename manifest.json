@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Instagram Extension",
-  "version": "0.3.0",
-  "description": "Download videos from Instagram posts, Reels, and Stories.",
+  "version": "0.4.0",
+  "description": "Download Instagram videos and Direct voice messages, and copy captions.",
   "permissions": [
     "downloads"
   ],
@@ -18,8 +18,18 @@
       "js": [
         "media-url.js",
         "stream-download.js",
-        "content.js"
+        "content.js",
+        "voice-download.js"
       ]
+    },
+    {
+      "matches": [
+        "https://www.instagram.com/*",
+        "https://instagram.com/*"
+      ],
+      "js": ["voice-playback.js"],
+      "run_at": "document_start",
+      "world": "MAIN"
     }
   ]
 }
