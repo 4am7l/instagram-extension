@@ -1,6 +1,24 @@
 {
   "manifest_version": 3,
   "name": "Instagram Extension",
-  "version": "0.1.0",
-  "description": "Personal browser extension for Instagram."
+  "version": "0.2.0",
+  "description": "Download videos from Instagram posts, Reels, and Stories.",
+  "permissions": [
+    "downloads"
+  ],
+  "background": {
+    "service_worker": "background.js"
+  },
+  "content_scripts": [
+    {
+      "matches": [
+        "https://www.instagram.com/*",
+        "https://instagram.com/*"
+      ],
+      "js": [
+        "media-url.js",
+        "content.js"
+      ]
+    }
+  ]
 }
