@@ -1,0 +1,6 @@
+{
+  "manifest_version": 3,
+  "name": "Instagram Extension",
+  "version": "0.1.0",
+  "description": "Personal browser extension for Instagram."
+}
