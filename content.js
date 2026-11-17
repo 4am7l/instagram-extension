@@ -5,15 +5,15 @@
         download: "تحميل الفيديو",
         starting: "جاري البدء…",
         started: "بدأ التحميل",
-        unavailable: "رابط الفيديو غير متاح للتحميل",
-        failed: "تعذّر بدء التحميل"
+        recording: "جاري حفظ الفيديو. خلّيه يشتغل للآخر.",
+        failed: "تعذّر حفظ الفيديو"
       }
     : {
         download: "Download video",
         starting: "Starting…",
         started: "Download started",
-        unavailable: "Direct video file unavailable",
-        failed: "Could not start download"
+        recording: "Saving video. Let it play to the end.",
+        failed: "Could not save this video"
       };
 
   const host = document.createElement("div");
@@ -23,10 +23,10 @@
   styles.replaceSync([
     ":host { position: fixed; z-index: 2147483647; display: block; }",
     ":host([hidden]) { display: none; }",
-    "button { box-sizing: border-box; max-width: calc(100vw - 24px); min-height: 36px;",
-    "  padding: 6px 12px; border: 1px solid #ffffff66; border-radius: 999px;",
-    "  background: #171717; color: #fff; font: 600 13px/1.25 system-ui, sans-serif;",
-    "  cursor: pointer; }",
+    "button { box-sizing: border-box; width: 30px; height: 30px; display: grid; place-items: center;",
+    "  padding: 0; border: 1px solid #ffffff66; border-radius: 50%;",
+    "  background: #171717; color: #fff; cursor: pointer; }",
+    "button svg { width: 16px; height: 16px; }",
     "button:hover { background: #333; }",
     "button:focus-visible { outline: 2px solid #fff; outline-offset: 2px; }",
     "button:disabled { cursor: wait; }",
@@ -40,7 +40,21 @@
 
   const button = document.createElement("button");
   button.type = "button";
-  button.textContent = labels.download;
+  button.title = labels.download;
+  button.setAttribute("aria-label", labels.download);
+  const svgNamespace = "http://www.w3.org/2000/svg";
+  const icon = document.createElementNS(svgNamespace, "svg");
+  icon.setAttribute("viewBox", "0 0 24 24");
+  icon.setAttribute("aria-hidden", "true");
+  const arrow = document.createElementNS(svgNamespace, "path");
+  arrow.setAttribute("d", "M12 3v12m-5-5 5 5 5-5M4 17v4h16v-4");
+  arrow.setAttribute("fill", "none");
+  arrow.setAttribute("stroke", "currentColor");
+  arrow.setAttribute("stroke-width", "2");
+  arrow.setAttribute("stroke-linecap", "round");
+  arrow.setAttribute("stroke-linejoin", "round");
+  icon.append(arrow);
+  button.append(icon);
 
   const status = document.createElement("span");
   status.setAttribute("role", "status");
@@ -77,7 +91,9 @@
     const centerY = (top + bottom) / 2;
     const targets = document.elementsFromPoint(centerX, centerY);
     if (!targets.includes(video) && !targets.includes(video.parentElement)) return null;
-    return { top, right, centerX, centerY };
+    const dialog = targets[0]?.closest('[role="dialog"], dialog[open]');
+    if (dialog && !dialog.contains(video)) return null;
+    return { left, top, right, centerX, centerY };
   }
 
   function selectVideo() {
@@ -101,10 +117,10 @@
     status.textContent = "";
   }
 
-  function showFeedback(text) {
+  function showFeedback(text, persistent = false) {
     clearFeedback();
     status.textContent = text;
-    feedbackTimer = setTimeout(clearFeedback, 3500);
+    if (!persistent) feedbackTimer = setTimeout(clearFeedback, 3500);
   }
 
   function update() {
@@ -122,11 +138,21 @@
     if (host.hidden !== shouldHide) host.hidden = shouldHide;
     if (!next) return;
 
-    const left = Math.min(innerWidth - host.offsetWidth - 8,
-      next.rect.right - host.offsetWidth - 10);
-    host.style.left = Math.max(8, left) + "px";
-    host.style.top = Math.max(8,
-      Math.min(innerHeight - host.offsetHeight - 8, next.rect.top + 10)) + "px";
+    const post = currentCategory() === "post" && video.closest("article");
+    const bounds = post ? post.getBoundingClientRect() : next.rect;
+    const width = host.offsetWidth;
+    const height = host.offsetHeight;
+    let left = bounds.right + 6;
+    let top = Math.max(6, next.rect.top);
+    if (left + width + 6 > innerWidth) {
+      left = bounds.left - width - 6;
+      if (left < 6) {
+        left = Math.max(6, next.rect.right - width - 6);
+        top = next.rect.top - height - 4;
+      }
+    }
+    host.style.left = left + "px";
+    host.style.top = Math.max(6, Math.min(innerHeight - height - 6, top)) + "px";
   }
 
   function scheduleUpdate() {
@@ -157,29 +183,36 @@
     if (!video || video !== activeVideo) return;
 
     const media = videoFile(video);
-    if (!media) {
-      showFeedback(labels.unavailable);
-      return;
-    }
-
+    const category = currentCategory();
     const requestedPath = activePath;
     const requestedSource = activeSource;
     button.disabled = true;
-    showFeedback(labels.starting);
     let started = false;
     try {
-      const response = await chrome.runtime.sendMessage({
-        type: "download-instagram-video",
-        url: media.url,
-        category: currentCategory()
-      });
-      started = response?.started === true;
+      if (media) {
+        showFeedback(labels.starting);
+        try {
+          const response = await chrome.runtime.sendMessage({
+            type: "download-instagram-video",
+            url: media.url,
+            category
+          });
+          started = response?.started === true;
+        } catch {
+          // Use playback capture if the browser rejects the direct request.
+        }
+      }
+      if (!started && video === activeVideo && requestedPath === activePath &&
+          requestedSource === activeSource) {
+        showFeedback(labels.recording, true);
+        saveRecordedVideo(await recordInstagramVideo(video), category);
+        started = true;
+      }
     } catch {
-      // Chrome may reject the request after the extension or tab is reloaded.
+      // The status below reports a failed or interrupted capture.
     } finally {
       button.disabled = false;
     }
-
     if (video === activeVideo && requestedPath === activePath && requestedSource === activeSource) {
       showFeedback(started ? labels.started : labels.failed);
     }
