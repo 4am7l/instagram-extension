@@ -1,13 +1,37 @@
 {
   "manifest_version": 3,
-  "name": "Instagram Extension",
-  "version": "0.4.0",
-  "description": "Download Instagram videos and Direct voice messages, and copy captions.",
+  "name": "InstaKit \u2014 Instagram Media & Profile Downloader",
+  "short_name": "InstaKit",
+  "version": "1.1.1",
+  "description": "Download Instagram posts, carousels, Reels, Stories, photos and voice messages, and copy captions.",
   "permissions": [
-    "downloads"
+    "activeTab",
+    "downloads",
+    "storage",
+    "clipboardWrite",
+    "contextMenus"
+  ],
+  "host_permissions": [
+    "https://*.instagram.com/*",
+    "https://*.cdninstagram.com/*",
+    "https://*.fbcdn.net/*"
   ],
   "background": {
     "service_worker": "background.js"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
+  },
+  "action": {
+    "default_popup": "popup.html",
+    "default_title": "InstaKit Settings & Downloads",
+    "default_icon": {
+      "16": "icons/icon16.png",
+      "48": "icons/icon48.png",
+      "128": "icons/icon128.png"
+    }
   },
   "content_scripts": [
     {
@@ -16,20 +40,27 @@
         "https://instagram.com/*"
       ],
       "js": [
-        "media-url.js",
-        "stream-download.js",
-        "content.js",
-        "voice-download.js"
-      ]
+        "page-interceptor.js",
+        "voice-playback.js"
+      ],
+      "run_at": "document_start",
+      "world": "MAIN"
     },
     {
       "matches": [
         "https://www.instagram.com/*",
         "https://instagram.com/*"
       ],
-      "js": ["voice-playback.js"],
-      "run_at": "document_start",
-      "world": "MAIN"
+      "js": [
+        "media-url.js",
+        "zip-helper.js",
+        "content.js",
+        "voice-download.js"
+      ],
+      "css": [
+        "content.css"
+      ],
+      "run_at": "document_idle"
     }
   ]
 }

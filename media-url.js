@@ -24,6 +24,14 @@ function getDownloadableVideo(source) {
   return extension ? { url: url.href, extension } : null;
 }
 
+function getDownloadableImage(source) {
+  const url = parseInstagramMediaUrl(source);
+  if (!url || !/(^|\.)(instagram\.com|cdninstagram\.com|fbcdn\.net)$/i.test(url.hostname)) return null;
+
+  const extension = url.pathname.match(/\.(jpe?g|png|webp|avif|gif)$/i)?.[1].toLowerCase();
+  return extension ? { url: url.href, extension: extension === "jpeg" ? "jpg" : extension } : null;
+}
+
 function getDownloadableVoice(source) {
   const url = parseInstagramMediaUrl(source);
   if (!url || !/(^|\.)(instagram\.com|cdninstagram\.com|fbcdn\.net|fbsbx\.com)$/i.test(url.hostname)) return null;

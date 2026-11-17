@@ -1,0 +1,355 @@
+/* InstaKit Injected Controls — Compact Google-Curved Icon Buttons & Multi-Select Picker */
+
+:root {
+  --ik-blue: #1a73e8;
+  --ik-blue-hover: #1557b0;
+  --ik-surface: rgba(255, 255, 255, 0.94);
+  --ik-surface-solid: #ffffff;
+  --ik-surface-subtle: #f8fafc;
+  --ik-surface-hover: #f1f5f9;
+  --ik-text: #0f172a;
+  --ik-muted: #64748b;
+  --ik-border: rgba(15, 23, 42, 0.14);
+  --ik-tooltip-bg: #0f172a;
+  --ik-tooltip-text: #ffffff;
+  --ik-toast-bg: #ffffff;
+  --ik-toast-text: #0f172a;
+}
+
+html[data-instakit-theme="dark"] {
+  --ik-blue: #1a73e8;
+  --ik-blue-hover: #2b7de9;
+  --ik-surface: rgba(18, 18, 20, 0.9);
+  --ik-surface-solid: #09090b;
+  --ik-surface-subtle: #18181b;
+  --ik-surface-hover: #27272a;
+  --ik-text: #f8fafc;
+  --ik-muted: #94a3b8;
+  --ik-border: rgba(255, 255, 255, 0.2);
+  --ik-tooltip-bg: #18181b;
+  --ik-tooltip-text: #ffffff;
+  --ik-toast-bg: #09090b;
+  --ik-toast-text: #f8fafc;
+}
+
+.instakit-icon-btn {
+  position: relative;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border-radius: 9999px;
+  border: 1px solid var(--ik-border);
+  background: var(--ik-surface);
+  color: var(--ik-text);
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+  transition: transform 140ms cubic-bezier(0.2, 0, 0, 1), background-color 140ms ease, border-color 140ms ease;
+  z-index: 25;
+}
+
+.instakit-icon-btn--sm {
+  width: 26px;
+  height: 26px;
+}
+
+.instakit-icon-btn:hover {
+  background: var(--ik-surface-hover);
+  border-color: var(--ik-blue);
+  transform: scale(1.06);
+}
+
+.instakit-icon-btn:active {
+  transform: scale(0.96);
+}
+
+.instakit-icon-btn--primary {
+  background: var(--ik-blue);
+  border-color: var(--ik-blue);
+  color: #ffffff;
+}
+
+.instakit-icon-btn--primary:hover {
+  background: var(--ik-blue-hover);
+  border-color: var(--ik-blue-hover);
+}
+
+.instakit-icon-btn svg {
+  width: 15px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.instakit-icon-btn--sm svg {
+  width: 13px;
+  height: 13px;
+}
+
+.instakit-icon-btn[data-tooltip]::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: calc(100% + 7px);
+  left: 50%;
+  transform: translateX(-50%) translateY(3px);
+  padding: 5px 10px;
+  border-radius: 9999px;
+  background: var(--ik-tooltip-bg);
+  color: var(--ik-tooltip-text);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.2;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  box-shadow: 0 6px 16px rgba(0, 0, 0, 0.22);
+  transition: opacity 130ms ease, transform 130ms ease;
+  z-index: 9999;
+}
+
+.instakit-icon-btn[data-tooltip-pos="bottom"]::after {
+  bottom: auto;
+  top: calc(100% + 7px);
+  transform: translateX(-50%) translateY(-3px);
+}
+
+.instakit-icon-btn[data-tooltip]:hover::after,
+.instakit-icon-btn[data-tooltip]:focus-visible::after {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+.instakit-dock {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.instakit-post-dock {
+  flex: 0 0 auto;
+  margin: 4px 8px;
+  vertical-align: middle;
+}
+
+.instakit-overlay-corner {
+  position: absolute;
+  bottom: 14px;
+  right: 12px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+  z-index: 40;
+}
+
+.instakit-overlay-corner .instakit-icon-btn[data-tooltip]::after {
+  bottom: auto;
+  top: 50%;
+  left: auto;
+  right: calc(100% + 8px);
+  transform: translateY(-50%) translateX(4px);
+}
+
+.instakit-overlay-corner .instakit-icon-btn[data-tooltip]:hover::after,
+.instakit-overlay-corner .instakit-icon-btn[data-tooltip]:focus-visible::after {
+  transform: translateY(-50%) translateX(0);
+}
+
+.instakit-pfp-corner {
+  position: absolute;
+  bottom: 2px;
+  right: 2px;
+  z-index: 30;
+}
+
+/* Multi-Select Batch Picker Modal */
+.instakit-modal-backdrop {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.72);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  z-index: 999998;
+  backdrop-filter: blur(4px);
+}
+
+.instakit-modal {
+  width: 100%;
+  max-width: 520px;
+  max-height: 85vh;
+  display: flex;
+  flex-direction: column;
+  border-radius: 24px;
+  background: var(--ik-surface-solid);
+  color: var(--ik-text);
+  border: 1px solid var(--ik-border);
+  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.35);
+  overflow: hidden;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+}
+
+.instakit-modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--ik-border);
+}
+
+.instakit-modal-title {
+  font-size: 15px;
+  font-weight: 700;
+  margin: 0;
+}
+
+.instakit-modal-toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 10px 20px;
+  background: var(--ik-surface-subtle);
+  border-bottom: 1px solid var(--ik-border);
+  font-size: 12px;
+}
+
+.instakit-pill-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  padding: 7px 14px;
+  border-radius: 9999px;
+  border: 1px solid var(--ik-border);
+  background: var(--ik-surface-solid);
+  color: var(--ik-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.instakit-pill-btn:hover {
+  border-color: var(--ik-blue);
+}
+
+.instakit-pill-btn--primary {
+  background: var(--ik-blue);
+  border-color: var(--ik-blue);
+  color: #ffffff;
+}
+
+.instakit-pill-btn--primary:hover {
+  background: var(--ik-blue-hover);
+  border-color: var(--ik-blue-hover);
+}
+
+.instakit-pill-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.instakit-modal-grid {
+  padding: 16px 20px;
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+}
+
+.instakit-thumb {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border-radius: 14px;
+  overflow: hidden;
+  border: 2px solid transparent;
+  background: var(--ik-surface-subtle);
+  cursor: pointer;
+  padding: 0;
+}
+
+.instakit-thumb.is-selected {
+  border-color: var(--ik-blue);
+}
+
+.instakit-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
+
+.instakit-thumb-check {
+  position: absolute;
+  top: 7px;
+  right: 7px;
+  width: 22px;
+  height: 22px;
+  border-radius: 9999px;
+  border: 2px solid #ffffff;
+  background: rgba(0, 0, 0, 0.45);
+  color: #ffffff;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.instakit-thumb.is-selected .instakit-thumb-check {
+  background: var(--ik-blue);
+}
+
+.instakit-thumb-type {
+  position: absolute;
+  bottom: 7px;
+  left: 7px;
+  padding: 2px 7px;
+  border-radius: 9999px;
+  background: rgba(0, 0, 0, 0.72);
+  color: #ffffff;
+  font-size: 10px;
+  font-weight: 600;
+}
+
+.instakit-modal-footer {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+  padding: 14px 20px;
+  border-top: 1px solid var(--ik-border);
+}
+
+.instakit-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) translateY(12px);
+  background: var(--ik-toast-bg);
+  color: var(--ik-toast-text);
+  border: 1px solid var(--ik-blue);
+  border-radius: 9999px;
+  padding: 9px 18px;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-size: 12px;
+  font-weight: 500;
+  box-shadow: 0 12px 28px rgba(0, 0, 0, 0.25);
+  z-index: 999999;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 160ms ease, transform 160ms ease;
+}
+
+.instakit-toast.is-visible {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}

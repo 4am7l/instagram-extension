@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>InstaKit</title>
+    <link rel="stylesheet" href="popup.css" />
+  </head>
+  <body>
+    <div class="popup-shell">
+      <header class="popup-header">
+        <div class="brand">
+          <span class="brand-name">InstaKit</span>
+          <span class="brand-sub" id="subtitle">أداة تنزيل ونسخ إنستغرام</span>
+        </div>
+        <div class="header-actions">
+          <button id="themeToggle" class="lang-btn" type="button">تلقائي</button>
+          <button id="langToggle" class="lang-btn" type="button">EN</button>
+        </div>
+      </header>
+
+      <section class="section">
+        <h2 class="section-title" id="togglesTitle">الأزرار المفعّلة داخل إنستغرام</h2>
+        <div class="toggles">
+          <label class="toggle-row">
+            <span id="lblPost">تنزيل كل صور البوست والكاروسيل</span>
+            <input type="checkbox" data-setting="enablePostDownload" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblReel">تحميل الريلز (Reels)</span>
+            <input type="checkbox" data-setting="enableReelDownload" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblPhoto">تحميل الصورة المحددة والصور HD</span>
+            <input type="checkbox" data-setting="enablePhotoDownload" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblStory">تحميل الستوري والهايلايت</span>
+            <input type="checkbox" data-setting="enableStoryDownload" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblPfp">تحميل صورة البروفايل (PFP)</span>
+            <input type="checkbox" data-setting="enablePfpDownload" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblBio">نسخ الوصف وتحميل البايو</span>
+            <input type="checkbox" data-setting="enableBioActions" />
+          </label>
+          <label class="toggle-row">
+            <span id="lblUser">نسخ الاسم واليوزرنيم</span>
+            <input type="checkbox" data-setting="enableCopyUsername" />
+          </label>
+        </div>
+      </section>
+
+      <section class="section">
+        <label class="field-label" for="batchMode" id="lblBatchMode">طريقة التحميل المتعدد</label>
+        <select id="batchMode" class="select-input">
+          <option value="ask" id="optAsk">تحديد واختيار (ZIP أو متتالي)</option>
+          <option value="zip" id="optZip">ملف ZIP واحد تلقائياً</option>
+          <option value="sequential" id="optSeq">تنزيل متتالي (ملف ملف)</option>
+        </select>
+      </section>
+
+      <section class="section">
+        <label class="field-label" for="filenamePattern" id="lblPattern">صيغة اسم الملف</label>
+        <select id="filenamePattern" class="select-input">
+          <option value="{username}_{type}_{id}">username_type_id</option>
+          <option value="{username}_{date}_{id}">username_date_id</option>
+          <option value="instakit_{type}_{id}">instakit_type_id</option>
+        </select>
+      </section>
+
+      <section class="section">
+        <div class="history-head">
+          <h2 class="section-title" id="historyTitle">آخر العمليات</h2>
+          <button id="clearHistory" class="text-btn" type="button">مسح</button>
+        </div>
+        <ul id="historyList" class="history-list"></ul>
+      </section>
+    </div>
+    <script src="popup.js"></script>
+  </body>
+</html>
