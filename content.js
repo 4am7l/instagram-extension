@@ -1288,6 +1288,8 @@
 
   const chatThread = /^\/direct\/t\/[^/]+/;
   const chatMedia = 'img, video';
+  const chatComposer = 'textarea, [contenteditable]:not([contenteditable="false"])';
+  const chatLabeledControls = 'button[aria-label], [role="button"][aria-label], svg[aria-label]';
   const chatCloseLabel = /^(close(?: media| viewer)?|إغلاق|اغلاق)$/i;
   const chatNextLabel = /^(next(?: slide| photo| image)?|التالي|الصورة التالية)$/i;
   const chatPreviousLabel = /^(previous(?: slide| photo| image)?|السابق|الصورة السابقة)$/i;
@@ -1325,18 +1327,25 @@
       .sort((a, b) => b.area / (1 + b.distance) - a.area / (1 + a.distance))[0];
   }
 
+  function isChatViewerRoot(root) {
+    if (!root.isConnected || root.closest('[data-instakit-injected], [hidden], [aria-hidden="true"], [inert]') ||
+      !root.getClientRects().length || root.querySelector(chatComposer)) return false;
+    if (root.matches('dialog[open], [aria-modal="true"]')) return true;
+    return [...root.querySelectorAll(chatLabeledControls)].some(control =>
+      chatCloseLabel.test(control.getAttribute('aria-label')));
+  }
+
   function findChatViewer() {
     for (const root of [...document.querySelectorAll(postDialog)].reverse()) {
-      if (!root.closest('[data-instakit-injected], [aria-hidden="true"], [inert]') &&
-        chatDisplayedMedia(root)) return root;
+      if (isChatViewerRoot(root) && chatDisplayedMedia(root)) return root;
     }
 
     // Some versions render the media viewer as a fixed overlay without a dialog role.
-    for (const node of document.querySelectorAll('button[aria-label], [role="button"][aria-label], svg[aria-label]')) {
+    for (const node of document.querySelectorAll(chatLabeledControls)) {
       if (!chatCloseLabel.test(node.getAttribute('aria-label'))) continue;
       for (let root = node.parentElement; root && root !== document.body; root = root.parentElement) {
         if (root.clientWidth < window.innerWidth * 0.75 || root.clientHeight < window.innerHeight * 0.75) continue;
-        if (getComputedStyle(root).position === 'fixed' && chatDisplayedMedia(root)) return root;
+        if (getComputedStyle(root).position === 'fixed' && isChatViewerRoot(root) && chatDisplayedMedia(root)) return root;
       }
     }
     return null;
@@ -1344,8 +1353,7 @@
 
   function noteChatMediaOpen(event) {
     if (!event.isTrusted || !(event.target instanceof Element) || !chatThread.test(location.pathname) ||
-      (chatViewer?.root.isConnected && chatDisplayedMedia(chatViewer.root)) ||
-      event.target.closest(postDialog)) return;
+      (chatViewer && isChatViewerRoot(chatViewer.root) && chatDisplayedMedia(chatViewer.root))) return;
     const target = event.target;
     if (target.closest('a[href], header, [data-instakit-injected]')) return;
     const trigger = target.closest('button, [role="button"]');
@@ -1444,8 +1452,7 @@
   }
 
   function injectChatViewerControls() {
-    if (chatViewer && (chatViewer.pathname !== location.pathname || !chatViewer.root.isConnected ||
-      chatViewer.root.closest('[aria-hidden="true"], [inert]') || !chatViewer.root.getClientRects().length)) {
+    if (chatViewer && (chatViewer.pathname !== location.pathname || !isChatViewerRoot(chatViewer.root))) {
       chatViewer.dock?.remove();
       chatViewer = null;
     }
@@ -1500,14 +1507,20 @@
   }
 
   function scanAndInject() {
-    if (location.pathname !== lastPathname) {
-      lastPathname = location.pathname;
+    const pathname = location.pathname;
+    if (pathname !== lastPathname) {
+      lastPathname = pathname;
       document.querySelectorAll('[data-instakit-storybar]').forEach((el) => el.remove());
     }
     applyAdaptiveTheme();
     injectChatViewerControls();
+    if (/^\/direct(?:\/|$)/.test(pathname)) {
+      document.querySelectorAll('[data-instakit-post-dock], [data-instakit-profile-dock], [data-instakit-pfp]')
+        .forEach(el => el.remove());
+      return;
+    }
     const dialogs = [...document.querySelectorAll(postDialog)].filter(root =>
-      root !== chatViewer?.root && !root.closest('[data-instakit-injected]') && root.querySelector('img, video')
+      !root.closest('[data-instakit-injected]') && root.querySelector('img, video')
     );
     for (const root of dialogs) {
       injectPostControls(root, { modal: true, reel: /\/reel\//.test(location.pathname) });
@@ -1545,7 +1558,7 @@
   chatViewerObserver.observe(document.documentElement, {
     subtree: true,
     attributes: true,
-    attributeFilter: ['open', 'hidden', 'aria-hidden', 'inert'],
+    attributeFilter: ['open', 'hidden', 'aria-hidden', 'aria-modal', 'aria-label', 'inert'],
   });
 
   document.addEventListener('click', noteChatMediaOpen, true);
