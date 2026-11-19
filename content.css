@@ -219,6 +219,25 @@ html[data-instakit-theme="dark"] {
   font-size: 12px;
 }
 
+.instakit-chat-viewer-actions {
+  position: fixed;
+  bottom: max(24px, env(safe-area-inset-bottom));
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.instakit-chat-viewer-actions .instakit-icon-btn:has(span) {
+  display: inline-flex;
+  width: auto;
+  gap: 6px;
+  padding-inline: 12px;
+  white-space: nowrap;
+}
+
 .instakit-pill-btn {
   display: inline-flex;
   align-items: center;

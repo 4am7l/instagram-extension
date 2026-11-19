@@ -18,6 +18,9 @@
       downloadAllPost: 'تحديد وتحميل كل صور ومقاطع البوست',
       downloadReel: 'تحميل الريلز',
       downloadPhoto: 'تحميل الصورة',
+      downloadChatVideo: 'تحميل الفيديو',
+      downloadChatAll: 'تحميل الكل',
+      incompleteChatAlbum: 'تعذر تجهيز كل صور المحادثة للتنزيل',
       downloadStory: 'تحميل الستوري',
       downloadAllStories: 'تحديد وتحميل كل الستوريات',
       downloadHighlightOne: 'تحميل هذه الستوري من الهايلايت',
@@ -53,6 +56,9 @@
       downloadAllPost: 'Select & Download All Post Media',
       downloadReel: 'Download Reel',
       downloadPhoto: 'Download Photo',
+      downloadChatVideo: 'Download Video',
+      downloadChatAll: 'Download All',
+      incompleteChatAlbum: 'Could not load all photos in this message',
       downloadStory: 'Download Story',
       downloadAllStories: 'Select & Download All Stories',
       downloadHighlightOne: 'Download This Highlight Story',
@@ -1280,14 +1286,228 @@
     }
   }
 
+  const chatThread = /^\/direct\/t\/[^/]+/;
+  const chatMedia = 'img, video';
+  const chatCloseLabel = /^(close(?: media| viewer)?|إغلاق|اغلاق)$/i;
+  const chatNextLabel = /^(next(?: slide| photo| image)?|التالي|الصورة التالية)$/i;
+  const chatPreviousLabel = /^(previous(?: slide| photo| image)?|السابق|الصورة السابقة)$/i;
+  let chatOpening;
+  let chatViewer;
+
+  function mediaKey(item) {
+    const path = new URL(item.url).pathname;
+    return path.slice(path.lastIndexOf('/') + 1);
+  }
+
+  function chatMediaEntries(root, minSize) {
+    return [...root.querySelectorAll(chatMedia)].flatMap(element => {
+      if (element.closest('header, footer, [data-instakit-injected]')) return [];
+      if (Math.min(element.clientWidth || element.naturalWidth || 0,
+        element.clientHeight || element.naturalHeight || 0) < minSize) return [];
+      const item = element.matches('video') ? videoItem(element) : imageItem(element);
+      return [{ element, item }];
+    });
+  }
+
+  function chatDisplayedMedia(root) {
+    const centerX = window.innerWidth / 2;
+    const centerY = window.innerHeight / 2;
+    return chatMediaEntries(root, 48).map(entry => {
+      const box = entry.element.getBoundingClientRect();
+      const width = Math.min(box.right, window.innerWidth) - Math.max(0, box.left);
+      const height = Math.min(box.bottom, window.innerHeight) - Math.max(0, box.top);
+      const style = getComputedStyle(entry.element);
+      const distance = Math.hypot((box.left + box.right) / 2 - centerX,
+        (box.top + box.bottom) / 2 - centerY);
+      return { ...entry, area: width * height, distance, visible: width >= 48 && height >= 48 &&
+        style.visibility === 'visible' && style.opacity !== '0' };
+    }).filter(entry => entry.visible)
+      .sort((a, b) => b.area / (1 + b.distance) - a.area / (1 + a.distance))[0];
+  }
+
+  function findChatViewer() {
+    for (const root of [...document.querySelectorAll(postDialog)].reverse()) {
+      if (!root.closest('[data-instakit-injected], [aria-hidden="true"], [inert]') &&
+        chatDisplayedMedia(root)) return root;
+    }
+
+    // Some versions render the media viewer as a fixed overlay without a dialog role.
+    for (const node of document.querySelectorAll('button[aria-label], [role="button"][aria-label], svg[aria-label]')) {
+      if (!chatCloseLabel.test(node.getAttribute('aria-label'))) continue;
+      for (let root = node.parentElement; root && root !== document.body; root = root.parentElement) {
+        if (root.clientWidth < window.innerWidth * 0.75 || root.clientHeight < window.innerHeight * 0.75) continue;
+        if (getComputedStyle(root).position === 'fixed' && chatDisplayedMedia(root)) return root;
+      }
+    }
+    return null;
+  }
+
+  function noteChatMediaOpen(event) {
+    if (!event.isTrusted || !(event.target instanceof Element) || !chatThread.test(location.pathname) ||
+      (chatViewer?.root.isConnected && chatDisplayedMedia(chatViewer.root)) ||
+      event.target.closest(postDialog)) return;
+    const target = event.target;
+    if (target.closest('a[href], header, [data-instakit-injected]')) return;
+    const trigger = target.closest('button, [role="button"]');
+    const media = target.closest(chatMedia) || [...(trigger?.querySelectorAll(chatMedia) || [])].find(element => {
+      const box = element.getBoundingClientRect();
+      return event.clientX >= box.left && event.clientX <= box.right &&
+        event.clientY >= box.top && event.clientY <= box.bottom;
+    });
+    if (!media || Math.min(media.clientWidth, media.clientHeight) < 48) return;
+    const group = media.closest('[role="row"], [role="listitem"], [data-message-id]') || trigger;
+    const entries = group ? chatMediaEntries(group, 48) : [];
+    chatOpening = {
+      pathname: location.pathname,
+      expires: performance.now() + 3000,
+      previousViewer: findChatViewer(),
+      images: entries.filter(entry => entry.item?.type === 'image').map(entry => entry.item),
+      source: media.matches('img') ? imageItem(media) : null,
+    };
+    scheduleScan();
+  }
+
+  function chatAlbum(state, current) {
+    const images = new Map();
+    const remember = item => { if (item?.type === 'image') images.set(mediaKey(item), item); };
+    const viewerImages = chatMediaEntries(state.root, 48).filter(entry => entry.item?.type === 'image');
+    const inViewer = new Set(viewerImages.map(entry => mediaKey(entry.item)));
+    // Only use message thumbnails when at least one image matches this viewer.
+    if (state.source && inViewer.has(mediaKey(state.source))) state.images.forEach(remember);
+    const hasNavigation = carouselButton(state.root, chatNextLabel) || carouselButton(state.root, chatPreviousLabel);
+    if (hasNavigation) viewerImages.forEach(entry => remember(entry.item));
+    remember(current);
+    return { images, hasNavigation };
+  }
+
+  async function downloadChatAlbum(state) {
+    if (state.collecting) return;
+    const current = () => chatDisplayedMedia(state.root)?.item;
+    const original = current();
+    if (original?.type !== 'image') return;
+    const { images, hasNavigation } = chatAlbum(state, original);
+    const live = () => chatViewer === state && state.root.isConnected && location.pathname === state.pathname;
+    const key = () => { const item = current(); return item && mediaKey(item); };
+    const originalKey = mediaKey(original);
+    const remember = () => {
+      const item = current();
+      if (item?.type === 'image') images.set(mediaKey(item), item);
+    };
+    const navButton = label => {
+      const button = carouselButton(state.root, label);
+      return button && !button.disabled && button.getAttribute('aria-disabled') !== 'true' ? button : null;
+    };
+    async function step(label) {
+      const button = live() && navButton(label);
+      if (!button) return false;
+      const before = key();
+      button.click();
+      for (let attempt = 0; attempt < 15 && live(); attempt++) {
+        await new Promise(resolve => setTimeout(resolve, 60));
+        const after = key();
+        if (after && after !== before) return true;
+      }
+      return false;
+    }
+    state.collecting = true;
+    let offset = 0;
+    let complete = true;
+    try {
+      if (hasNavigation) {
+        for (const [label, delta] of [[chatPreviousLabel, -1], [chatNextLabel, 1]]) {
+          let steps = 0;
+          const seen = new Set([key()]);
+          while (live() && navButton(label)) {
+            if (++steps > 30 || !await step(label)) {
+              complete = false;
+              break;
+            }
+            offset += delta;
+            remember();
+            if (seen.has(key())) break;
+            seen.add(key());
+          }
+        }
+      }
+    } finally {
+      while (live() && offset !== 0 && key() !== originalKey) {
+        const delta = offset > 0 ? -1 : 1;
+        if (!await step(delta < 0 ? chatPreviousLabel : chatNextLabel)) break;
+        offset += delta;
+      }
+      state.collecting = false;
+      scheduleScan();
+    }
+    if (!live()) return;
+    if (!complete || images.size < 2) return showToast(t('incompleteChatAlbum'));
+    await downloadSequential({ items: [...images.values()], type: 'chat_album', id: Date.now() });
+  }
+
+  function injectChatViewerControls() {
+    if (chatViewer && (chatViewer.pathname !== location.pathname || !chatViewer.root.isConnected ||
+      chatViewer.root.closest('[aria-hidden="true"], [inert]') || !chatViewer.root.getClientRects().length)) {
+      chatViewer.dock?.remove();
+      chatViewer = null;
+    }
+    if (!chatViewer && chatOpening) {
+      if (chatOpening.pathname !== location.pathname || performance.now() >= chatOpening.expires) {
+        chatOpening = null;
+        return;
+      }
+      const root = findChatViewer();
+      if (!root) return;
+      if (root === chatOpening.previousViewer) return;
+      chatViewer = { ...chatOpening, root };
+      chatOpening = null;
+    }
+    if (!chatViewer || chatViewer.collecting) return;
+    const state = chatViewer;
+    const displayed = chatDisplayedMedia(state.root);
+    if (!displayed) {
+      state.dock?.remove();
+      state.dock = null;
+      return;
+    }
+    const video = displayed.element.matches('video');
+    const album = !video ? chatAlbum(state, displayed.item) : null;
+    const showAll = album && (album.images.size > 1 || album.hasNavigation);
+    const layout = [video, Boolean(showAll), settings.lang].join(':');
+    if (state.dock?.isConnected && layout === state.layout) return;
+    state.dock?.remove();
+    state.layout = layout;
+    const dock = document.createElement('div');
+    dock.className = 'instakit-chat-viewer-actions';
+    dock.setAttribute('data-instakit-injected', 'true');
+    dock.append(createIconBtn({
+      tooltip: t(video ? 'downloadChatVideo' : 'downloadPhoto'),
+      onClick: () => {
+        const item = chatDisplayedMedia(state.root)?.item;
+        if (!item || chatViewer !== state) return showToast(t('noMedia'));
+        return downloadSingle({ ...item, type: item.type === 'video' ? 'chat_video' : 'chat_photo',
+          id: Date.now() });
+      },
+    }));
+    if (showAll) {
+      const all = createIconBtn({ tooltip: t('downloadChatAll'), icon: 'layers',
+        onClick: () => downloadChatAlbum(state) });
+      const label = document.createElement('span');
+      label.textContent = t('downloadChatAll');
+      all.append(label);
+      dock.append(all);
+    }
+    state.dock = dock;
+    state.root.append(dock);
+  }
+
   function scanAndInject() {
     if (location.pathname !== lastPathname) {
       lastPathname = location.pathname;
       document.querySelectorAll('[data-instakit-storybar]').forEach((el) => el.remove());
     }
     applyAdaptiveTheme();
+    injectChatViewerControls();
     const dialogs = [...document.querySelectorAll(postDialog)].filter(root =>
-      !root.closest('[data-instakit-injected]') && root.querySelector('img, video')
+      root !== chatViewer?.root && !root.closest('[data-instakit-injected]') && root.querySelector('img, video')
     );
     for (const root of dialogs) {
       injectPostControls(root, { modal: true, reel: /\/reel\//.test(location.pathname) });
@@ -1319,6 +1539,22 @@
     subtree: true,
   });
 
+  const chatViewerObserver = new MutationObserver(() => {
+    if (chatOpening || chatViewer) scheduleScan();
+  });
+  chatViewerObserver.observe(document.documentElement, {
+    subtree: true,
+    attributes: true,
+    attributeFilter: ['open', 'hidden', 'aria-hidden', 'inert'],
+  });
+
+  document.addEventListener('click', noteChatMediaOpen, true);
+  document.addEventListener('load', event => {
+    if (chatThread.test(location.pathname) && event.target instanceof HTMLImageElement) scheduleScan();
+  }, true);
+  document.addEventListener('loadedmetadata', event => {
+    if (chatThread.test(location.pathname) && event.target instanceof HTMLVideoElement) scheduleScan();
+  }, true);
   window.addEventListener('popstate', scheduleScan);
   window.navigation?.addEventListener('navigatesuccess', scheduleScan);
   window.dispatchEvent(new CustomEvent('instakit:read-cache'));
